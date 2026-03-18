@@ -18,7 +18,17 @@ config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# LangGraph checkpoint tables are managed by AsyncPostgresSaver.setup(),
+# not by Alembic. Exclude them from autogenerate detection.
+EXCLUDE_TABLES = {"checkpoints", "checkpoint_blobs", "checkpoint_writes", "checkpoint_migrations"}
+
 target_metadata = Base.metadata
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name in EXCLUDE_TABLES:
+        return False
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -28,6 +38,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -42,7 +53,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

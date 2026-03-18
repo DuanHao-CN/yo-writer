@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6380/0"
 
+    # LLM
+    OPENAI_API_KEY: str = ""
+
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"
 

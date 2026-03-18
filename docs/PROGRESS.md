@@ -10,7 +10,7 @@
 |-------|-------|--------|----------------|-------|
 | 00 | Index & Conventions | Done | 2026-03-18 | Master index, tech stack, shared conventions |
 | 01 | Project Scaffold | Done | 2026-03-18 | pyenv+uv, FastAPI, Docker Compose, Alembic, Next.js |
-| 02 | Agent Core | Not Started | — | Agent CRUD, ReAct LangGraph, conversations |
+| 02 | Agent Core | Done | 2026-03-18 | Agent CRUD, ReAct LangGraph, conversations, checkpointer |
 | 03 | Agent Chat UI | Not Started | — | CopilotKit, AG-UI streaming |
 | 04 | Tool System | Not Started | — | FastMCP gateway, built-in tools |
 | 05 | Code Sandbox | Not Started | — | Docker sandbox, code execution |
@@ -61,22 +61,48 @@
 
 ---
 
-## Phase 02: Agent Core — Not Started
+## Phase 02: Agent Core — Done
 
-### Planned Deliverables
+### Deliverables
 
-- [ ] SQLAlchemy models: Agent, AgentVersion, Conversation, Message, AgentRun
-- [ ] Alembic migration creating 5 tables
-- [ ] Pydantic schemas for Agent/Conversation CRUD
-- [ ] Agent CRUD API (`/api/v1/agents`)
-- [ ] Conversation API (`/api/v1/conversations`)
-- [ ] ReAct LangGraph graph with mock tool node
-- [ ] AsyncPostgresSaver checkpointer
-- [ ] AgentRuntime class
-- [ ] Agent run endpoint (`POST /api/v1/agents/{id}/run`)
+- [x] SQLAlchemy models: Agent, AgentVersion, Conversation, Message, AgentRun (`backend/app/models/agent.py`)
+- [x] Models `__init__.py` with all imports (`backend/app/models/__init__.py`)
+- [x] Alembic migration creating 5 tables + nullable fix (`backend/migrations/versions/`)
+- [x] Pydantic schemas for Agent CRUD (`backend/app/schemas/agent.py`)
+- [x] Pydantic schemas for Conversation/Message (`backend/app/schemas/conversation.py`)
+- [x] Agent service with CRUD + slug generation (`backend/app/services/agent_service.py`)
+- [x] Conversation service with CRUD + messages (`backend/app/services/conversation_service.py`)
+- [x] Agent CRUD API routes (`backend/app/api/v1/agents.py`)
+- [x] Conversation API routes (`backend/app/api/v1/conversations.py`)
+- [x] ReAct LangGraph graph with mock tool node (`backend/app/runtime/graphs/react.py`)
+- [x] AsyncPostgresSaver checkpointer (`backend/app/runtime/checkpointer.py`)
+- [x] AgentRuntime engine (`backend/app/runtime/engine.py`)
+- [x] Routers registered in `backend/app/main.py`
+- [x] OPENAI_API_KEY config added to Settings
+- [x] Alembic env.py excludes LangGraph checkpoint tables
+- [x] `psycopg[binary]` added to dependencies
+
+### Verification Results
+
+- [x] `uv run alembic upgrade head` — 5 tables created (agents, agent_versions, conversations, messages, agent_runs)
+- [x] `POST /api/v1/agents` — creates agent, returns 201 with ID, slug, timestamps
+- [x] `GET /api/v1/agents` — lists agents in dev workspace with pagination
+- [x] `GET /api/v1/agents/{id}` — returns agent details
+- [x] `PATCH /api/v1/agents/{id}` — updates agent fields (description, status)
+- [x] `DELETE /api/v1/agents/{id}` — deletes agent, returns 204
+- [x] Slug conflict returns 409 with `AGENT_SLUG_CONFLICT` error
+- [x] `POST /api/v1/conversations` — creates conversation linked to agent
+- [x] `POST /api/v1/conversations/{id}/messages` — stores message
+- [x] `GET /api/v1/conversations/{id}` — returns conversation with messages (selectinload)
+- [x] `GET /api/v1/conversations/{id}/messages` — returns message history
+- [x] `POST /api/v1/agents/{id}/run` — runtime wired (requires OPENAI_API_KEY in `.env`)
+
+### Note
+
+Agent run endpoint (`POST /api/v1/agents/{id}/run`) requires `OPENAI_API_KEY` set in `.env`. Uncomment and fill the key to enable LLM execution.
 
 ---
 
 ## Next Step
 
-**Phase 02: Agent Core** — Read `docs/phases/02-agent-core.md` and implement.
+**Phase 03: Agent Chat UI** — Read `docs/phases/03-agent-chat.md` and implement.

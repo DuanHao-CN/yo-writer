@@ -64,7 +64,32 @@ npm run build                              # Production build
 npm run lint                               # Lint
 ```
 
-## Code Conventions
+## Engineering Standards
+
+目标不是写"能跑的代码"，而是写**长期可维护的生产级工程代码**。
+
+### 代码质量
+
+- **类型标注**: 所有函数签名必须有完整的类型标注，包括返回值类型
+- **Pydantic 校验**: API 入参和出参必须用 Pydantic model，禁止裸 dict 穿越层边界
+- **错误处理**: 所有 service 层抛 `APIError`，禁止在 route handler 里 try/except 后返回裸字符串
+- **异步优先**: 所有 I/O 操作必须 async，禁止在 async 函数中调用阻塞 I/O
+- **单一职责**: route handler 只做参数解析和响应封装，业务逻辑在 service 层，数据操作在 model/repository 层
+
+### 数据库
+
+- **显式事务**: 写操作使用 `async with session.begin()`，读操作允许 autocommit
+- **批量操作**: N+1 查询问题用 `selectinload` / `joinedload` 解决，禁止循环内单条查询
+- **索引**: 高频查询字段必须有索引，复合查询用复合索引
+- **Migration**: 每次 migration 必须可回滚 (有 downgrade)
+
+### 性能
+
+- **连接池**: DB 和 Redis 都必须用连接池，禁止每次请求新建连接
+- **序列化**: 响应 model 只包含必要字段，禁止直接返回 ORM 对象
+- **分页**: 所有 list 接口必须分页，默认 page_size=20，最大 100
+
+### 代码风格
 
 - All API routes under `/api/v1/`
 - Error responses: `{"error": {"code": "ERROR_CODE", "message": "...", "details": {...}}}`

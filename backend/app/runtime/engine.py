@@ -1,0 +1,144 @@
+"""AgentRuntime — compiles and runs LangGraph agent graphs.
+
+Manages compiled graph instances and routes run requests.
+"""
+
+import time
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+
+from app.core.database import async_session
+from app.models.agent import Agent, AgentRun
+from app.runtime.checkpointer import get_checkpointer
+from app.runtime.graphs.react import build_react_graph
+
+
+def _to_langchain_message(message: dict[str, Any]) -> BaseMessage:
+    role = message.get("role")
+    content = message.get("content", "")
+
+    if role == "user":
+        return HumanMessage(content=content)
+    if role == "system":
+        return SystemMessage(content=content)
+    if role == "assistant":
+        return AIMessage(content=content)
+    if role == "tool":
+        tool_call_id = message.get("tool_call_id")
+        if not tool_call_id:
+            raise ValueError("Tool messages require tool_call_id")
+        return ToolMessage(content=content, tool_call_id=tool_call_id)
+
+    raise ValueError(f"Unsupported message role: {role}")
+
+
+def _serialize_message(message: BaseMessage) -> dict[str, Any]:
+    role_map = {
+        "human": "user",
+        "system": "system",
+        "ai": "assistant",
+        "tool": "tool",
+    }
+    return {
+        "role": role_map.get(getattr(message, "type", ""), "unknown"),
+        "content": getattr(message, "content", ""),
+    }
+
+
+class AgentRuntime:
+    async def run(
+        self,
+        agent: Agent,
+        messages: list[dict],
+        thread_id: str | None = None,
+        conversation_id: uuid.UUID | None = None,
+    ) -> dict:
+        """Execute the agent graph with given messages.
+
+        Returns the final message content and run metadata.
+        """
+        thread_id = thread_id or str(uuid.uuid4())
+
+        lc_messages = [_to_langchain_message(message) for message in messages]
+
+        config = {
+            "configurable": {
+                "thread_id": thread_id,
+                "agent_config": agent.config,
+            }
+        }
+
+        run_id = uuid.uuid4()
+        start_time = time.time()
+
+        try:
+            async with get_checkpointer() as checkpointer:
+                graph = build_react_graph()
+                compiled = graph.compile(checkpointer=checkpointer)
+                result = await compiled.ainvoke({"messages": lc_messages}, config)
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            await self._save_run(
+                run_id=run_id,
+                agent_id=agent.id,
+                conversation_id=conversation_id,
+                agent_version=agent.current_version,
+                status="completed",
+                duration_ms=duration_ms,
+            )
+
+            return {
+                "run_id": str(run_id),
+                "thread_id": thread_id,
+                "status": "completed",
+                "duration_ms": duration_ms,
+                "messages": [
+                    _serialize_message(message) for message in result["messages"]
+                ],
+            }
+
+        except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            await self._save_run(
+                run_id=run_id,
+                agent_id=agent.id,
+                conversation_id=conversation_id,
+                agent_version=agent.current_version,
+                status="failed",
+                duration_ms=duration_ms,
+                error=str(e),
+            )
+            raise
+
+    async def _save_run(
+        self,
+        run_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        conversation_id: uuid.UUID | None,
+        agent_version: int,
+        status: str,
+        duration_ms: int,
+        error: str | None = None,
+    ) -> None:
+        async with async_session() as db:
+            run = AgentRun(
+                id=run_id,
+                agent_id=agent_id,
+                conversation_id=conversation_id,
+                agent_version=agent_version,
+                status=status,
+                duration_ms=duration_ms,
+                error=error,
+            )
+            if status == "completed":
+                run.completed_at = datetime.now(UTC)
+            db.add(run)
+            await db.commit()
+
+
+# Singleton
+agent_runtime = AgentRuntime()

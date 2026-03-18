@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1 import agents, conversations
 from app.core.config import settings
 from app.core.errors import register_error_handlers
 
@@ -29,6 +30,8 @@ app.add_middleware(
 )
 
 register_error_handlers(app)
+app.include_router(agents.router)
+app.include_router(conversations.router)
 
 
 @app.get("/health")
