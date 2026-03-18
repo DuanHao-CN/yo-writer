@@ -255,7 +255,7 @@ DATABASE_POOL_RECYCLE = 3600   # recycle connections after 1 hour
 | `OPENAI_API_KEY` | Yes | — | 02 | OpenAI API key for LLM calls |
 | `ANTHROPIC_API_KEY` | No | — | 02 | Anthropic API key (fallback LLM) |
 | `DEFAULT_LLM_PROVIDER` | No | `openai` | 02 | Default LLM provider |
-| `DEFAULT_LLM_MODEL` | No | `gpt-4o` | 02 | Default model ID |
+| `DEFAULT_LLM_MODEL` | No | `gpt-5.4` | 02 | Default model ID |
 | `FRONTEND_URL` | No | `http://localhost:3000` | 03 | Frontend origin for CORS |
 | `HITL_TIMEOUT_SECONDS` | No | `300` | 06 | Auto-reject after N seconds |
 | `JWT_SECRET_KEY` | Yes (Phase 08+) | — | 08 | RS256 private key for JWT signing |

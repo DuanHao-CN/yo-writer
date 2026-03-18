@@ -124,7 +124,7 @@ CREATE TABLE agent_runs (
   "config": {
     "model": {
       "provider": "openai",
-      "model_id": "gpt-4o",
+      "model_id": "gpt-5.4",
       "temperature": 0.7,
       "max_tokens": 4096
     },

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ModelConfig(BaseModel):
     provider: str = "openai"
-    model_id: str = "gpt-4o"
+    model_id: str = "gpt-5.4"
     temperature: float = Field(default=0.7, ge=0, le=2)
     max_tokens: int = Field(default=4096, ge=1, le=128000)
 

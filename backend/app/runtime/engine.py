@@ -5,10 +5,17 @@ Manages compiled graph instances and routes run requests.
 
 import time
 import uuid
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langgraph.graph.state import CompiledStateGraph
 
 from app.core.database import async_session
@@ -52,6 +59,7 @@ def _serialize_message(message: BaseMessage) -> dict[str, Any]:
 class AgentRuntime:
     def __init__(self) -> None:
         self.graphs: dict[str, CompiledStateGraph] = {}
+        self.langgraph_configs: dict[str, dict[str, Any]] = {}
 
     def register_agent(self, slug: str, config: dict) -> None:
         """Build and compile a graph for the given agent, cache by slug."""
@@ -59,6 +67,34 @@ class AgentRuntime:
         graph = build_react_graph()
         compiled = graph.compile(checkpointer=checkpointer)
         self.graphs[slug] = compiled
+        self.langgraph_configs[slug] = {
+            "configurable": {"agent_config": deepcopy(config)}
+        }
+
+    def unregister_agent(self, slug: str) -> None:
+        """Remove an agent from the in-memory runtime registry."""
+        self.graphs.pop(slug, None)
+        self.langgraph_configs.pop(slug, None)
+
+    def clear_registered_agents(self) -> None:
+        """Reset the in-memory runtime registry."""
+        self.graphs.clear()
+        self.langgraph_configs.clear()
+
+    def list_registered_agent_slugs(self) -> list[str]:
+        """Return all registered agent slugs."""
+        return list(self.graphs)
+
+    def get_graph(self, slug: str) -> CompiledStateGraph | None:
+        """Return the compiled graph for a registered agent."""
+        return self.graphs.get(slug)
+
+    def get_langgraph_config(self, slug: str) -> dict[str, Any] | None:
+        """Return a defensive copy of the stored LangGraph config."""
+        config = self.langgraph_configs.get(slug)
+        if config is None:
+            return None
+        return deepcopy(config)
 
     async def run(
         self,

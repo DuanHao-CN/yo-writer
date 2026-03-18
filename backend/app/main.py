@@ -21,14 +21,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     await init_checkpointer()
+    agent_runtime.clear_registered_agents()
 
     async with async_session() as db:
-        db_agents, _ = await agent_service.list_agents(db, DEV_WORKSPACE_ID)
+        db_agents = await agent_service.list_all_agents(db, DEV_WORKSPACE_ID)
         for agent in db_agents:
             agent_runtime.register_agent(agent.slug, agent.config)
         logger.info("Loaded %d agent(s) into runtime", len(db_agents))
 
-    register_copilotkit_endpoint(app, agent_runtime.graphs)
+    register_copilotkit_endpoint(app, agent_runtime)
 
     yield
 

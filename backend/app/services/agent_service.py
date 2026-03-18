@@ -60,6 +60,17 @@ async def list_agents(
     return list(result.scalars().all()), total or 0
 
 
+async def list_all_agents(db: AsyncSession, workspace_id: str) -> list[Agent]:
+    """Return all agents for runtime/bootstrap flows that cannot paginate."""
+    wid = uuid.UUID(workspace_id)
+    result = await db.execute(
+        select(Agent)
+        .where(Agent.workspace_id == wid)
+        .order_by(Agent.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def get_agent(db: AsyncSession, agent_id: uuid.UUID) -> Agent:
     agent = await db.get(Agent, agent_id)
     if not agent:
@@ -88,10 +99,13 @@ async def update_agent(
     return agent
 
 
-async def delete_agent(db: AsyncSession, agent_id: uuid.UUID) -> None:
+async def delete_agent(db: AsyncSession, agent_id: uuid.UUID) -> str:
+    """Delete agent and return its slug for runtime cleanup."""
     agent = await get_agent(db, agent_id)
+    slug = agent.slug
     await db.delete(agent)
     await db.commit()
+    return slug
 
 
 async def list_runs(

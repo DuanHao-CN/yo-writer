@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import DEV_WORKSPACE_ID
 from app.core.database import get_db
+from app.runtime.engine import agent_runtime
 from app.schemas.agent import AgentCreate, AgentListResponse, AgentResponse, AgentUpdate
 from app.schemas.conversation import AgentRunResponse, RunAgentRequest
 from app.services import agent_service
@@ -17,6 +18,7 @@ async def create_agent(
     data: AgentCreate, db: AsyncSession = Depends(get_db)
 ) -> AgentResponse:
     agent = await agent_service.create_agent(db, DEV_WORKSPACE_ID, data)
+    agent_runtime.register_agent(agent.slug, agent.config)
     return AgentResponse.model_validate(agent)
 
 
@@ -47,7 +49,11 @@ async def update_agent(
     data: AgentUpdate,
     db: AsyncSession = Depends(get_db),
 ) -> AgentResponse:
+    old_slug = (await agent_service.get_agent(db, agent_id)).slug
     agent = await agent_service.update_agent(db, agent_id, data)
+    if old_slug != agent.slug:
+        agent_runtime.unregister_agent(old_slug)
+    agent_runtime.register_agent(agent.slug, agent.config)
     return AgentResponse.model_validate(agent)
 
 
@@ -55,7 +61,8 @@ async def update_agent(
 async def delete_agent(
     agent_id: uuid.UUID, db: AsyncSession = Depends(get_db)
 ) -> None:
-    await agent_service.delete_agent(db, agent_id)
+    slug = await agent_service.delete_agent(db, agent_id)
+    agent_runtime.unregister_agent(slug)
 
 
 @router.post("/{agent_id}/run")
@@ -64,8 +71,6 @@ async def run_agent(
     data: RunAgentRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    from app.runtime.engine import agent_runtime
-
     agent = await agent_service.get_agent(db, agent_id)
     result = await agent_runtime.run(
         agent=agent,

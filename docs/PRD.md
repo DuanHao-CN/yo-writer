@@ -252,7 +252,7 @@ agent:
   description: "Analyze CSV data and generate insights"
   model:
     provider: "openai"                # openai | anthropic | custom
-    model_id: "gpt-4o"
+    model_id: "gpt-5.4"
     temperature: 0.7
     max_tokens: 4096
   system_prompt: |
