@@ -159,7 +159,7 @@ async def list_agent_tools(
 
 
 async def seed_builtin_tools(db: AsyncSession, workspace_id: str) -> None:
-    """Upsert builtin tools (web-search, file-ops) for the workspace."""
+    """Upsert builtin tools (web-search, file-ops, code-sandbox) for the workspace."""
     wid = uuid.UUID(workspace_id)
     builtins = [
         {
@@ -183,6 +183,16 @@ async def seed_builtin_tools(db: AsyncSession, workspace_id: str) -> None:
                     "builtin_file-ops_read_file",
                     "builtin_file-ops_write_file",
                 ],
+            },
+        },
+        {
+            "name": "Code Sandbox",
+            "slug": "code-sandbox",
+            "description": "Execute Python code in a secure sandbox",
+            "type": "builtin",
+            "mcp_uri": "builtin://code-sandbox",
+            "schema_json": {
+                "tools": ["builtin_code-sandbox_code_sandbox"],
             },
         },
     ]

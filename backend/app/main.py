@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.agui import register_copilotkit_endpoint
-from app.api.v1 import agents, conversations, tools
+from app.api.v1 import agents, conversations, sandbox, tools
 from app.core.config import settings
 from app.core.constants import DEV_WORKSPACE_ID
 from app.core.database import async_session
@@ -59,6 +59,7 @@ register_error_handlers(app)
 app.include_router(agents.router)
 app.include_router(conversations.router)
 app.include_router(tools.router)
+app.include_router(sandbox.router)
 
 
 @app.get("/health")

@@ -13,7 +13,7 @@
 | 02 | Agent Core | Done | 2026-03-18 | Agent CRUD, ReAct LangGraph, conversations, checkpointer |
 | 03 | Agent Chat UI | Done | 2026-03-18 | CopilotKit, AG-UI streaming |
 | 04 | Tool System | Done | 2026-03-18 | FastMCP gateway, Tool CRUD, agent-tool binding, tool call recording |
-| 05 | Code Sandbox | Not Started | — | Docker sandbox, code execution |
+| 05 | Code Sandbox | Done | 2026-03-18 | Docker sandbox, code execution, MCP tool |
 | 06 | Human-in-the-Loop | Not Started | — | Approval/edit/review/form patterns |
 | 07 | Advanced Agents | Not Started | — | Plan-Execute, Multi-Agent, versioning |
 | 08 | Auth & Users | Not Started | — | JWT, OAuth, RBAC |
@@ -169,6 +169,42 @@ Agent run endpoint (`POST /api/v1/agents/{id}/run`) requires `OPENAI_API_KEY` se
 
 ---
 
+## Phase 05: Code Sandbox — Done
+
+### Deliverables
+
+- [x] Sandbox config dataclasses: `SandboxConfig`, `ExecutionResult` (`backend/app/runtime/sandbox/config.py`)
+- [x] `SandboxManager` with Docker-based execution, resource limits, timeout handling (`backend/app/runtime/sandbox/manager.py`)
+- [x] `code_sandbox` MCP tool mounted on gateway as `builtin_code-sandbox` (`backend/app/runtime/mcp_gateway.py`)
+- [x] SQLAlchemy model: `SandboxExecution` (`backend/app/models/sandbox.py`)
+- [x] Alembic migration creating `sandbox_executions` table with index on `agent_run_id`
+- [x] Pydantic schemas: `SandboxExecuteRequest`, `SandboxExecuteResponse` (`backend/app/schemas/sandbox.py`)
+- [x] Sandbox service: `execute_code()`, `record_execution()` (`backend/app/services/sandbox_service.py`)
+- [x] Dev endpoint: `POST /api/v1/sandbox/execute` (`backend/app/api/v1/sandbox.py`)
+- [x] Seeded `code-sandbox` builtin tool in `seed_builtin_tools()`
+- [x] Sandbox router registered in `app.main`
+
+### Verification Results
+
+- [x] `uv run alembic upgrade head` — `sandbox_executions` table created
+- [x] `docker pull python:3.12-slim` — sandbox base image available
+- [x] `POST /api/v1/sandbox/execute` with `{"code": "print(2+2)"}` → `{"stdout": "4\n", "exit_code": 0}`
+- [x] Timeout: `{"code": "import time; time.sleep(60)"}` → killed after timeout, exit_code=137
+- [x] Memory: `{"code": "x = bytearray(600*1024*1024)"}` → OOM killed, exit_code=137
+- [x] Network disabled: `urllib.request.urlopen('http://example.com')` → name resolution failure
+- [x] `GET /api/v1/tools/` — shows seeded code-sandbox builtin tool
+- [x] MCP gateway exposes `builtin_code-sandbox_code_sandbox` tool
+
+### Architecture Notes
+
+- Docker run with `--rm --memory --memory-swap --cpus=1 --pids-limit=10 --read-only --network=none`
+- Tmpfs mounts for `/tmp` and `/workspace` (100m each)
+- Package install uses `pip` (available in python:3.12-slim), enables network temporarily
+- Timeout via `asyncio.wait_for` + process kill on expiry
+- Dev-mode isolation (Docker); Phase 10 upgrades to gVisor
+
+---
+
 ## Next Step
 
-**Phase 05: Code Sandbox** — Read `docs/phases/05-sandbox.md` and implement.
+**Phase 06: Human-in-the-Loop** — Read `docs/phases/06-hitl.md` and implement.

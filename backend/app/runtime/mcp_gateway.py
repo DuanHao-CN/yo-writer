@@ -1,6 +1,7 @@
 """FastMCP gateway — mounts builtin tool servers and exposes a unified interface.
 
 Phase 04: builtin mock tools (web-search, file-ops).
+Phase 05: code-sandbox (Docker-based Python execution).
 Future phases add user-registered MCP tool servers.
 """
 
@@ -9,12 +10,16 @@ from typing import Any
 
 from fastmcp import Client, FastMCP
 
+from app.runtime.sandbox.config import SandboxConfig
+from app.runtime.sandbox.manager import sandbox_manager
+
 logger = logging.getLogger(__name__)
 
 # ---- Builtin tool servers ----
 
 builtin_search = FastMCP("builtin-web-search")
 builtin_files = FastMCP("builtin-file-ops")
+builtin_sandbox = FastMCP("builtin-code-sandbox")
 
 
 @builtin_search.tool
@@ -35,11 +40,37 @@ def write_file(path: str, content: str) -> str:
     return f"[Mock] Wrote {len(content)} chars to {path}"
 
 
+@builtin_sandbox.tool
+async def code_sandbox(
+    code: str,
+    packages: list[str] | None = None,
+    timeout_seconds: int = 30,
+) -> str:
+    """Execute Python code in a secure Docker sandbox."""
+    config = SandboxConfig(timeout_seconds=timeout_seconds)
+
+    if packages:
+        result = await sandbox_manager.execute_with_packages(code, packages, config)
+    else:
+        result = await sandbox_manager.execute(code, config)
+
+    parts = [
+        f"Exit code: {result.exit_code}",
+        f"Duration: {result.execution_time_ms}ms",
+    ]
+    if result.stdout:
+        parts.append(f"--- stdout ---\n{result.stdout}")
+    if result.stderr:
+        parts.append(f"--- stderr ---\n{result.stderr}")
+    return "\n".join(parts)
+
+
 # ---- Gateway (mounts all builtin servers) ----
 
 gateway = FastMCP("YoAgent-MCP-Gateway")
 gateway.mount(builtin_search, namespace="builtin_web-search")
 gateway.mount(builtin_files, namespace="builtin_file-ops")
+gateway.mount(builtin_sandbox, namespace="builtin_code-sandbox")
 
 
 async def get_mcp_tool_schemas() -> list[dict[str, Any]]:
