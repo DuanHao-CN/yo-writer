@@ -1,14 +1,12 @@
 from logging.config import fileConfig
 
-from alembic import context
-from sqlalchemy import engine_from_config, pool
-
-from app.core.config import settings
-from app.core.database import Base
-
 # Import all models so Base.metadata is populated for autogenerate.
 # Add new model imports here as they are created in future phases.
 import app.models  # noqa: F401
+from alembic import context
+from app.core.config import settings
+from app.core.database import Base
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 

@@ -11,7 +11,7 @@
 | 00 | Index & Conventions | Done | 2026-03-18 | Master index, tech stack, shared conventions |
 | 01 | Project Scaffold | Done | 2026-03-18 | pyenv+uv, FastAPI, Docker Compose, Alembic, Next.js |
 | 02 | Agent Core | Done | 2026-03-18 | Agent CRUD, ReAct LangGraph, conversations, checkpointer |
-| 03 | Agent Chat UI | Not Started | — | CopilotKit, AG-UI streaming |
+| 03 | Agent Chat UI | Done | 2026-03-18 | CopilotKit, AG-UI streaming |
 | 04 | Tool System | Not Started | — | FastMCP gateway, built-in tools |
 | 05 | Code Sandbox | Not Started | — | Docker sandbox, code execution |
 | 06 | Human-in-the-Loop | Not Started | — | Approval/edit/review/form patterns |
@@ -103,6 +103,33 @@ Agent run endpoint (`POST /api/v1/agents/{id}/run`) requires `OPENAI_API_KEY` se
 
 ---
 
+## Phase 03: Agent Chat UI — Done
+
+### Deliverables
+
+- [x] `OPENAI_BASE_URL` config added to Settings + `.env` / `.env.example`
+- [x] `base_url` passed to `ChatOpenAI()` in ReAct graph (`backend/app/runtime/graphs/react.py`)
+- [x] `copilotkit` + `ag-ui-langgraph` added to backend dependencies
+- [x] Persistent checkpointer lifecycle: `init_checkpointer()` / `close_checkpointer()` / `get_persistent_checkpointer()` (`backend/app/runtime/checkpointer.py`)
+- [x] `AgentRuntime.graphs` dict + `register_agent()` method for pre-compiled graphs (`backend/app/runtime/engine.py`)
+- [x] CopilotKit endpoint via `CopilotKitRemoteEndpoint` + `LangGraphAgent` (`backend/app/api/agui.py`)
+- [x] Lifespan startup loads all agents → registers graphs → mounts `/copilotkit` endpoint (`backend/app/main.py`)
+- [x] `@copilotkit/react-core` + `@copilotkit/react-ui` installed in frontend
+- [x] Agent list page at `/agents` — fetches from API, renders cards linking to chat (`frontend/app/agents/page.tsx`)
+- [x] Chat layout with CopilotKit provider per agent slug (`frontend/app/chat/[agent_slug]/layout.tsx`)
+- [x] Chat page with `AgentChat` component (`frontend/app/chat/[agent_slug]/page.tsx`)
+- [x] `AgentChat` generative UI component with `render_chart` + `show_code_result` actions (`frontend/app/components/copilot/AgentChat.tsx`)
+- [x] Landing page updated with "View Agents" link (`frontend/app/page.tsx`)
+
+### Architecture Notes
+
+- CopilotKit uses `CopilotKitRemoteEndpoint` (single `/copilotkit` endpoint for all agents)
+- Frontend selects agent via `agent` prop on `<CopilotKit>` provider
+- langgraph pinned at `>=1.0` (1.0.10 installed) for copilotkit compatibility
+- Persistent checkpointer shared across all compiled graphs (initialized once at startup)
+
+---
+
 ## Next Step
 
-**Phase 03: Agent Chat UI** — Read `docs/phases/03-agent-chat.md` and implement.
+**Phase 04: Tool System** — Read `docs/phases/04-tools.md` and implement.

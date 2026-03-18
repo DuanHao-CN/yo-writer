@@ -9,10 +9,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langgraph.graph.state import CompiledStateGraph
 
 from app.core.database import async_session
 from app.models.agent import Agent, AgentRun
-from app.runtime.checkpointer import get_checkpointer
+from app.runtime.checkpointer import get_checkpointer, get_persistent_checkpointer
 from app.runtime.graphs.react import build_react_graph
 
 
@@ -49,6 +50,16 @@ def _serialize_message(message: BaseMessage) -> dict[str, Any]:
 
 
 class AgentRuntime:
+    def __init__(self) -> None:
+        self.graphs: dict[str, CompiledStateGraph] = {}
+
+    def register_agent(self, slug: str, config: dict) -> None:
+        """Build and compile a graph for the given agent, cache by slug."""
+        checkpointer = get_persistent_checkpointer()
+        graph = build_react_graph()
+        compiled = graph.compile(checkpointer=checkpointer)
+        self.graphs[slug] = compiled
+
     async def run(
         self,
         agent: Agent,
@@ -59,6 +70,7 @@ class AgentRuntime:
         """Execute the agent graph with given messages.
 
         Returns the final message content and run metadata.
+        Uses cached graph when available, falls back to per-request compilation.
         """
         thread_id = thread_id or str(uuid.uuid4())
 
@@ -75,10 +87,15 @@ class AgentRuntime:
         start_time = time.time()
 
         try:
-            async with get_checkpointer() as checkpointer:
-                graph = build_react_graph()
-                compiled = graph.compile(checkpointer=checkpointer)
+            # Use cached graph if available, otherwise compile per-request
+            if agent.slug in self.graphs:
+                compiled = self.graphs[agent.slug]
                 result = await compiled.ainvoke({"messages": lc_messages}, config)
+            else:
+                async with get_checkpointer() as checkpointer:
+                    graph = build_react_graph()
+                    compiled = graph.compile(checkpointer=checkpointer)
+                    result = await compiled.ainvoke({"messages": lc_messages}, config)
 
             duration_ms = int((time.time() - start_time) * 1000)
 

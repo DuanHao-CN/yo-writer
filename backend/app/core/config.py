@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
@@ -22,6 +21,7 @@ class Settings(BaseSettings):
 
     # LLM
     OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
 
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"

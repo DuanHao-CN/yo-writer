@@ -40,3 +40,8 @@ a {
     color-scheme: dark;
   }
 }
+
+/* CopilotKit chat fills container */
+.copilot-chat {
+  height: 100%;
+}

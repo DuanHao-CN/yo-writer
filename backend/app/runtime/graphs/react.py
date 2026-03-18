@@ -25,6 +25,7 @@ def _build_llm(config: dict) -> ChatOpenAI:
         temperature=model_cfg.get("temperature", 0.7),
         max_tokens=model_cfg.get("max_tokens", 4096),
         api_key=settings.OPENAI_API_KEY or None,
+        base_url=settings.OPENAI_BASE_URL or None,
     )
 
 
