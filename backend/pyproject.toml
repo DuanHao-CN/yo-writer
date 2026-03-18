@@ -17,6 +17,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.0.4",
     "psycopg[binary]>=3.1",
     "python-slugify>=8.0.4",
+    "fastmcp>=2.0",
     "copilotkit>=0.1.65",
     "ag-ui-langgraph>=0.0.27",
 ]

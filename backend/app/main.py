@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.agui import register_copilotkit_endpoint
-from app.api.v1 import agents, conversations
+from app.api.v1 import agents, conversations, tools
 from app.core.config import settings
 from app.core.constants import DEV_WORKSPACE_ID
 from app.core.database import async_session
@@ -13,6 +13,7 @@ from app.core.errors import register_error_handlers
 from app.runtime.checkpointer import close_checkpointer, init_checkpointer
 from app.runtime.engine import agent_runtime
 from app.services import agent_service
+from app.services.tool_service import seed_builtin_tools
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,9 @@ async def lifespan(app: FastAPI):
         for agent in db_agents:
             agent_runtime.register_agent(agent.slug, agent.config)
         logger.info("Loaded %d agent(s) into runtime", len(db_agents))
+
+        await seed_builtin_tools(db, DEV_WORKSPACE_ID)
+        logger.info("Seeded builtin tools")
 
     register_copilotkit_endpoint(app, agent_runtime)
 
@@ -54,6 +58,7 @@ app.add_middleware(
 register_error_handlers(app)
 app.include_router(agents.router)
 app.include_router(conversations.router)
+app.include_router(tools.router)
 
 
 @app.get("/health")

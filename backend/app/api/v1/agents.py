@@ -8,7 +8,8 @@ from app.core.database import get_db
 from app.runtime.engine import agent_runtime
 from app.schemas.agent import AgentCreate, AgentListResponse, AgentResponse, AgentUpdate
 from app.schemas.conversation import AgentRunResponse, RunAgentRequest
-from app.services import agent_service
+from app.schemas.tool import AgentToolBind, AgentToolResponse
+from app.services import agent_service, tool_service
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 
@@ -85,3 +86,37 @@ async def list_agent_runs(
 ) -> list[AgentRunResponse]:
     runs = await agent_service.list_runs(db, agent_id)
     return [AgentRunResponse.model_validate(r) for r in runs]
+
+
+# --------------- Agent-Tool Binding ---------------
+
+
+@router.post("/{agent_id}/tools", response_model=AgentToolResponse, status_code=201)
+async def bind_tool(
+    agent_id: uuid.UUID,
+    data: AgentToolBind,
+    db: AsyncSession = Depends(get_db),
+) -> AgentToolResponse:
+    await agent_service.get_agent(db, agent_id)
+    agent_tool = await tool_service.bind_tool(
+        db, agent_id, data.tool_id, data.config_override
+    )
+    return AgentToolResponse.model_validate(agent_tool)
+
+
+@router.get("/{agent_id}/tools", response_model=list[AgentToolResponse])
+async def list_agent_tools(
+    agent_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+) -> list[AgentToolResponse]:
+    await agent_service.get_agent(db, agent_id)
+    items = await tool_service.list_agent_tools(db, agent_id)
+    return [AgentToolResponse.model_validate(at) for at in items]
+
+
+@router.delete("/{agent_id}/tools/{tool_id}", status_code=204)
+async def unbind_tool(
+    agent_id: uuid.UUID,
+    tool_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await tool_service.unbind_tool(db, agent_id, tool_id)

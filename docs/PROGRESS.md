@@ -12,7 +12,7 @@
 | 01 | Project Scaffold | Done | 2026-03-18 | pyenv+uv, FastAPI, Docker Compose, Alembic, Next.js |
 | 02 | Agent Core | Done | 2026-03-18 | Agent CRUD, ReAct LangGraph, conversations, checkpointer |
 | 03 | Agent Chat UI | Done | 2026-03-18 | CopilotKit, AG-UI streaming |
-| 04 | Tool System | Not Started | — | FastMCP gateway, built-in tools |
+| 04 | Tool System | Done | 2026-03-18 | FastMCP gateway, Tool CRUD, agent-tool binding, tool call recording |
 | 05 | Code Sandbox | Not Started | — | Docker sandbox, code execution |
 | 06 | Human-in-the-Loop | Not Started | — | Approval/edit/review/form patterns |
 | 07 | Advanced Agents | Not Started | — | Plan-Execute, Multi-Agent, versioning |
@@ -130,6 +130,45 @@ Agent run endpoint (`POST /api/v1/agents/{id}/run`) requires `OPENAI_API_KEY` se
 
 ---
 
+## Phase 04: Tool System — Done
+
+### Deliverables
+
+- [x] CopilotKit `showDevConsole={false}` — suppresses `announcements.json` fetch error (`frontend/app/chat/[agent_slug]/layout.tsx`)
+- [x] `fastmcp>=2.0` added to backend dependencies (`backend/pyproject.toml`)
+- [x] SQLAlchemy models: Tool, AgentTool, ToolCall (`backend/app/models/tool.py`)
+- [x] Models `__init__.py` updated with tool model imports
+- [x] Alembic migration creating `tools`, `agent_tools`, `tool_calls` tables with indexes
+- [x] Pydantic schemas: ToolCreate, ToolUpdate, ToolResponse, ToolListResponse, AgentToolBind, AgentToolResponse, ToolTestRequest, ToolTestResponse (`backend/app/schemas/tool.py`)
+- [x] FastMCP gateway with builtin web-search and file-ops mock tools (`backend/app/runtime/mcp_gateway.py`)
+- [x] ReAct graph `tool_node` replaced with real MCP gateway routing (`backend/app/runtime/graphs/react.py`)
+- [x] Tool service with CRUD, test, bind/unbind, seed builtins (`backend/app/services/tool_service.py`)
+- [x] Tool CRUD API routes (`backend/app/api/v1/tools.py`)
+- [x] Agent-tool binding endpoints added to agents router (`backend/app/api/v1/agents.py`)
+- [x] Tools router registered + builtin tools seeded at startup (`backend/app/main.py`)
+
+### Verification Results
+
+- [x] `uv sync` — fastmcp 3.1.1 installed
+- [x] `uv run alembic upgrade head` — tools, agent_tools, tool_calls tables created
+- [x] `GET /api/v1/tools` — returns 2 seeded builtin tools (web-search, file-ops)
+- [x] `POST /api/v1/tools` — creates custom tool, returns 201
+- [x] `POST /api/v1/agents/{id}/tools` — binds tool to agent
+- [x] `GET /api/v1/agents/{id}/tools` — returns bound tools with tool details
+- [x] `DELETE /api/v1/agents/{id}/tools/{tool_id}` — unbinds tool, returns 204
+- [x] `DELETE /api/v1/tools/{id}` — deletes tool, returns 204
+- [x] `POST /api/v1/tools/{id}/test` — invokes tool via MCP gateway, returns mock result + timing
+- [x] ReAct graph tool_node calls MCP gateway instead of returning mock strings
+
+### Architecture Notes
+
+- FastMCP gateway uses `Client(gateway)` in-memory pattern (no network transport)
+- Namespace separator is underscore (`builtin_web-search_web_search`) per MCP tool naming spec
+- MCP tool schemas are cached at module level after first LLM binding fetch
+- Tool node function signature kept stable for Phase 06 HITL wrapping
+
+---
+
 ## Next Step
 
-**Phase 04: Tool System** — Read `docs/phases/04-tools.md` and implement.
+**Phase 05: Code Sandbox** — Read `docs/phases/05-sandbox.md` and implement.

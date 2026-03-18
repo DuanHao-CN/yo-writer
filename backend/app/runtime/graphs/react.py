@@ -6,16 +6,22 @@ Structure:
 
 Design notes:
     - `should_continue` and `tool_node` are standalone importable functions.
-    - Phase 04 replaces `tool_node` with MCP gateway routing.
+    - Phase 04: `tool_node` routes calls through FastMCP gateway.
     - Phase 06 wraps `should_continue` with HITL interrupt logic.
 """
 
+import logging
 from typing import Any
 
 from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, MessagesState, StateGraph
+
+logger = logging.getLogger(__name__)
+
+# MCP tool schemas are cached at module level after first fetch.
+_mcp_tool_cache: list[dict[str, Any]] | None = None
 
 
 class AgentState(MessagesState):
@@ -38,29 +44,6 @@ def _build_llm(config: dict) -> ChatOpenAI:
     )
 
 
-# --------------- Mock tools for Phase 02 ---------------
-
-MOCK_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "calculator",
-            "description": "Perform basic arithmetic calculations",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "expression": {
-                        "type": "string",
-                        "description": "Math expression to evaluate",
-                    }
-                },
-                "required": ["expression"],
-            },
-        },
-    }
-]
-
-
 def _get_tool_name(tool: dict[str, Any]) -> str | None:
     """Return a stable tool name across OpenAI and AG-UI tool shapes."""
     if tool.get("type") == "function":
@@ -76,9 +59,21 @@ def _get_tool_name(tool: dict[str, Any]) -> str | None:
     return None
 
 
-def _get_bound_tools(state: AgentState) -> list[dict[str, Any]]:
-    """Combine built-in tools with CopilotKit-provided frontend actions."""
-    tools: list[dict[str, Any]] = [*MOCK_TOOLS]
+async def _get_mcp_tools() -> list[dict[str, Any]]:
+    """Fetch MCP gateway tool schemas, with module-level caching."""
+    global _mcp_tool_cache
+    if _mcp_tool_cache is None:
+        from app.runtime.mcp_gateway import get_mcp_tool_schemas
+
+        _mcp_tool_cache = await get_mcp_tool_schemas()
+    return _mcp_tool_cache
+
+
+async def _get_bound_tools(state: AgentState) -> list[dict[str, Any]]:
+    """Combine MCP gateway tools with CopilotKit-provided frontend actions."""
+    mcp_tools = await _get_mcp_tools()
+    tools: list[dict[str, Any]] = [*mcp_tools]
+
     raw_tools = state.get("tools") or []
     if isinstance(raw_tools, list):
         tools.extend(tool for tool in raw_tools if isinstance(tool, dict))
@@ -104,7 +99,8 @@ async def llm_node(state: AgentState, config: RunnableConfig) -> dict:
     system_prompt = agent_config.get("system_prompt", "You are a helpful assistant.")
 
     llm = _build_llm(agent_config)
-    llm_with_tools = llm.bind_tools(_get_bound_tools(state))
+    bound_tools = await _get_bound_tools(state)
+    llm_with_tools = llm.bind_tools(bound_tools)
 
     messages = [SystemMessage(content=system_prompt), *state["messages"]]
     response = await llm_with_tools.ainvoke(messages)
@@ -112,20 +108,28 @@ async def llm_node(state: AgentState, config: RunnableConfig) -> dict:
 
 
 async def tool_node(state: AgentState) -> dict:
-    """Execute tool calls — mock implementation for Phase 02.
+    """Execute tool calls via MCP gateway.
 
-    Phase 04 replaces this with real MCP gateway routing.
     Phase 06 wraps this with HITL interrupt logic.
     """
-    results = []
+    from app.runtime.mcp_gateway import call_mcp_tool
+
+    results: list[ToolMessage] = []
     last_message = state["messages"][-1]
+
     for tool_call in last_message.tool_calls:
+        tool_name = tool_call["name"]
+        tool_args = tool_call["args"]
+        try:
+            content = await call_mcp_tool(tool_name, tool_args)
+        except Exception as exc:
+            logger.warning("Tool call failed: %s(%s) -> %s", tool_name, tool_args, exc)
+            content = f"Error calling tool '{tool_name}': {exc}"
+
         results.append(
-            ToolMessage(
-                content=f"[Mock] Tool '{tool_call['name']}' called with {tool_call['args']}",
-                tool_call_id=tool_call["id"],
-            )
+            ToolMessage(content=content, tool_call_id=tool_call["id"])
         )
+
     return {"messages": results}
 
 

@@ -16,7 +16,7 @@ export default function ChatLayout({
   const { agent_slug } = use(params);
 
   return (
-    <CopilotKit runtimeUrl={`${API_URL}/copilotkit`} agent={agent_slug}>
+    <CopilotKit runtimeUrl={`${API_URL}/copilotkit`} agent={agent_slug} showDevConsole={false}>
       {children}
     </CopilotKit>
   );
