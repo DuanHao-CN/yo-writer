@@ -97,6 +97,9 @@ npm run lint                               # Lint
 - All database operations use async SQLAlchemy sessions
 - Use `from app.core.constants import DEV_USER_ID, DEV_WORKSPACE_ID` for phases 01-07
 - Keep LangGraph node functions as standalone importable functions (not lambdas)
+- HITL config: `config.hitl.require_approval` / `config.hitl.require_review` — lists of tool names
+- HITL uses LangGraph `interrupt()` from `langgraph.types`, resume value is JSON-parsed dict
+- `build_react_hitl_graph()` for agents with HITL, `build_react_graph()` for standard agents
 
 ## Port Mapping (Dev)
 

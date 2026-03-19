@@ -16,10 +16,16 @@ class GraphConfig(BaseModel):
     max_iterations: int = Field(default=10, ge=1, le=100)
 
 
+class HITLConfig(BaseModel):
+    require_approval: list[str] = Field(default_factory=list)
+    require_review: list[str] = Field(default_factory=list)
+
+
 class AgentConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     system_prompt: str = "You are a helpful assistant."
     graph: GraphConfig = Field(default_factory=GraphConfig)
+    hitl: HITLConfig | None = None
 
 
 class AgentCreate(BaseModel):

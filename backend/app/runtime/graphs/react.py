@@ -1,10 +1,12 @@
 """ReAct (Reasoning + Acting) agent graph.
 
 Structure:
-    START -> llm -> should_continue -> tools -> llm (loop)
-                                    -> END
+    START -> entry_router -> llm -> should_continue -> tools -> llm (loop)
+                          -> END                     -> END
 
 Design notes:
+    - `entry_router` gates graph execution — skips LLM when no messages
+      (e.g. CopilotKit agent/connect initial page load with empty messages).
     - `should_continue` and `tool_node` are standalone importable functions.
     - Phase 04: `tool_node` routes calls through FastMCP gateway.
     - Phase 06 wraps `should_continue` with HITL interrupt logic.
@@ -138,10 +140,27 @@ def should_continue(state: AgentState) -> str:
 
     Phase 06 will wrap this to add HITL interrupt before tool execution.
     """
+    if not state["messages"]:
+        return END
     last = state["messages"][-1]
     if hasattr(last, "tool_calls") and last.tool_calls:
         return "tools"
     return END
+
+
+# --------------- Graph routing ---------------
+
+
+def entry_router(state: AgentState) -> str:
+    """Gate graph execution: route to 'llm' only when there are messages to process.
+
+    CopilotKit sends agent/connect with empty messages on initial page load.
+    Without this guard the LLM node would be invoked with no user input —
+    wasting an API call and failing on providers that reject system-only requests.
+    """
+    if not state["messages"]:
+        return END
+    return "llm"
 
 
 # --------------- Graph builder ---------------
@@ -151,7 +170,7 @@ def build_react_graph() -> StateGraph:
     graph = StateGraph(AgentState)
     graph.add_node("llm", llm_node)
     graph.add_node("tools", tool_node)
-    graph.add_edge(START, "llm")
+    graph.add_conditional_edges(START, entry_router, ["llm", END])
     graph.add_conditional_edges("llm", should_continue, ["tools", END])
     graph.add_edge("tools", "llm")
     return graph

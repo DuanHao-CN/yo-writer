@@ -1,9 +1,54 @@
 "use client";
 
 import { CopilotChat } from "@copilotkit/react-ui";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useCopilotAction, useLangGraphInterrupt } from "@copilotkit/react-core";
+import HITLApproval from "../hitl/HITLApproval";
+import HITLReview from "../hitl/HITLReview";
+import HITLFormInput from "../hitl/HITLFormInput";
 
 export default function AgentChat() {
+  // HITL: handle LangGraph interrupt events
+  useLangGraphInterrupt({
+    render: ({ event, resolve }) => {
+      const payload = event.value as Record<string, unknown>;
+      const doResolve = (val: Record<string, unknown>) => resolve(JSON.stringify(val));
+
+      if (payload.type === "approval") {
+        return (
+          <HITLApproval
+            toolName={payload.tool_name as string}
+            toolArgs={payload.tool_args as Record<string, unknown>}
+            message={payload.message as string}
+            onResolve={doResolve}
+          />
+        );
+      }
+
+      if (payload.type === "review") {
+        return (
+          <HITLReview
+            toolName={payload.tool_name as string}
+            originalOutput={payload.original_output as string}
+            message={payload.message as string}
+            onResolve={doResolve}
+          />
+        );
+      }
+
+      if (payload.type === "form_input") {
+        return (
+          <HITLFormInput
+            message={payload.message as string}
+            fields={payload.fields as { name: string; label?: string; type?: "string" | "enum"; options?: string[]; default?: string }[]}
+            onResolve={doResolve}
+          />
+        );
+      }
+
+      return <></>;
+    },
+  });
+
   // Generative UI: render_chart placeholder
   useCopilotAction({
     name: "render_chart",

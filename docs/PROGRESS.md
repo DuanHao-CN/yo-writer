@@ -14,7 +14,7 @@
 | 03 | Agent Chat UI | Done | 2026-03-18 | CopilotKit, AG-UI streaming |
 | 04 | Tool System | Done | 2026-03-18 | FastMCP gateway, Tool CRUD, agent-tool binding, tool call recording |
 | 05 | Code Sandbox | Done | 2026-03-18 | Docker sandbox, code execution, MCP tool |
-| 06 | Human-in-the-Loop | Not Started | — | Approval/edit/review/form patterns |
+| 06 | Human-in-the-Loop | Done | 2026-03-19 | Approval/edit/review/form patterns |
 | 07 | Advanced Agents | Not Started | — | Plan-Execute, Multi-Agent, versioning |
 | 08 | Auth & Users | Not Started | — | JWT, OAuth, RBAC |
 | 09 | Billing & Marketplace | Not Started | — | Stripe, usage metering |
@@ -205,6 +205,28 @@ Agent run endpoint (`POST /api/v1/agents/{id}/run`) requires `OPENAI_API_KEY` se
 
 ---
 
+## Phase 06: Human-in-the-Loop — Done
+
+### Deliverables
+
+- [x] HITL-enhanced tool node with approval/review/execute routing (`backend/app/runtime/graphs/react_hitl.py`)
+- [x] `HITLConfig` schema (require_approval, require_review lists) added to `AgentConfig` (`backend/app/schemas/agent.py`)
+- [x] Conditional graph selection: HITL graph when approval/review configured, standard ReAct otherwise (`backend/app/runtime/engine.py`)
+- [x] `HITLApproval` component: Approve/Reject/Edit&Approve buttons with JSON args editor (`frontend/app/components/hitl/HITLApproval.tsx`)
+- [x] `HITLReview` component: editable textarea with original output + Accept & Continue (`frontend/app/components/hitl/HITLReview.tsx`)
+- [x] `HITLFormInput` component: dynamic form from fields schema (select for enums, input for strings) (`frontend/app/components/hitl/HITLFormInput.tsx`)
+- [x] `useLangGraphInterrupt` registered in AgentChat with type-based routing to HITL components (`frontend/app/components/copilot/AgentChat.tsx`)
+
+### Architecture Notes
+
+- Uses LangGraph `interrupt()` from `langgraph.types` — checkpoint-based suspension, no timeouts needed
+- `resolve()` takes a string — frontend JSON.stringifies, backend JSON.loads on resume
+- HITL config is part of agent config dict, no new DB tables needed
+- Agents without HITL config use standard `build_react_graph()` — zero overhead for non-HITL agents
+- Three HITL patterns: approval (pre-execution gate), review (post-execution edit), form_input (structured human input)
+
+---
+
 ## Next Step
 
-**Phase 06: Human-in-the-Loop** — Read `docs/phases/06-hitl.md` and implement.
+**Phase 07: Advanced Agents** — Read `docs/phases/07-advanced-agents.md` and implement.

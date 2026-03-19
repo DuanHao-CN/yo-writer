@@ -16,12 +16,22 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langgraph.graph import StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.core.database import async_session
 from app.models.agent import Agent, AgentRun
 from app.runtime.checkpointer import get_checkpointer, get_persistent_checkpointer
 from app.runtime.graphs.react import build_react_graph
+from app.runtime.graphs.react_hitl import build_react_hitl_graph
+
+
+def _select_graph(config: dict) -> StateGraph:
+    """Choose graph builder based on agent config — HITL if approval/review lists present."""
+    hitl = config.get("hitl") or {}
+    if hitl.get("require_approval") or hitl.get("require_review"):
+        return build_react_hitl_graph()
+    return build_react_graph()
 
 
 def _to_langchain_message(message: dict[str, Any]) -> BaseMessage:
@@ -64,7 +74,7 @@ class AgentRuntime:
     def register_agent(self, slug: str, config: dict) -> None:
         """Build and compile a graph for the given agent, cache by slug."""
         checkpointer = get_persistent_checkpointer()
-        graph = build_react_graph()
+        graph = _select_graph(config)
         compiled = graph.compile(checkpointer=checkpointer)
         self.graphs[slug] = compiled
         self.langgraph_configs[slug] = {
@@ -129,7 +139,7 @@ class AgentRuntime:
                 result = await compiled.ainvoke({"messages": lc_messages}, config)
             else:
                 async with get_checkpointer() as checkpointer:
-                    graph = build_react_graph()
+                    graph = _select_graph(agent.config)
                     compiled = graph.compile(checkpointer=checkpointer)
                     result = await compiled.ainvoke({"messages": lc_messages}, config)
 
