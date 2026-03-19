@@ -109,7 +109,7 @@ async def llm_node(state: AgentState, config: RunnableConfig) -> dict:
     return {"messages": [response]}
 
 
-async def tool_node(state: AgentState) -> dict:
+async def tool_node(state: AgentState, config: RunnableConfig | None = None) -> dict:
     """Execute tool calls via MCP gateway.
 
     Phase 06 wraps this with HITL interrupt logic.
@@ -161,6 +161,21 @@ def entry_router(state: AgentState) -> str:
     if not state["messages"]:
         return END
     return "llm"
+
+
+def make_entry_router(first_node: str):
+    """Create an entry router that routes to `first_node` when messages exist.
+
+    Same empty-message guard as `entry_router`, but targets a custom first node
+    (e.g. "plan" or "supervisor") instead of the hardcoded "llm".
+    """
+
+    def router(state: AgentState) -> str:
+        if not state["messages"]:
+            return END
+        return first_node
+
+    return router
 
 
 # --------------- Graph builder ---------------

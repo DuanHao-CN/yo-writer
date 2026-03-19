@@ -15,7 +15,7 @@
 | 04 | Tool System | Done | 2026-03-18 | FastMCP gateway, Tool CRUD, agent-tool binding, tool call recording |
 | 05 | Code Sandbox | Done | 2026-03-18 | Docker sandbox, code execution, MCP tool |
 | 06 | Human-in-the-Loop | Done | 2026-03-19 | Approval/edit/review/form patterns |
-| 07 | Advanced Agents | Not Started | — | Plan-Execute, Multi-Agent, versioning |
+| 07 | Advanced Agents | Done | 2026-03-19 | Plan-Execute, Multi-Agent, versioning |
 | 08 | Auth & Users | Not Started | — | JWT, OAuth, RBAC |
 | 09 | Billing & Marketplace | Not Started | — | Stripe, usage metering |
 | 10 | Production | Not Started | — | K8s, gVisor, observability |
@@ -227,6 +227,33 @@ Agent run endpoint (`POST /api/v1/agents/{id}/run`) requires `OPENAI_API_KEY` se
 
 ---
 
+## Phase 07: Advanced Agents — Done
+
+### Deliverables
+
+- [x] Plan-Execute graph: planner → plan approval (HITL) → executor (LLM + tools loop) → synthesizer (`backend/app/runtime/graphs/plan_execute.py`)
+- [x] Multi-Agent Supervisor graph: supervisor → delegation approval (HITL) → researcher/coder/reviewer sub-agents (`backend/app/runtime/graphs/multi_agent.py`)
+- [x] `_select_graph()` updated to route `plan-execute` and `multi-agent` graph types (`backend/app/runtime/engine.py`)
+- [x] `GraphConfig.type` validation: `Literal["react", "plan-execute", "multi-agent"]` (`backend/app/schemas/agent.py`)
+- [x] Agent versioning: `update_agent()` snapshots current config as `AgentVersion` before applying changes (`backend/app/services/agent_service.py`)
+- [x] Version service: `list_versions()`, `get_version()`, `rollback_agent()` (`backend/app/services/agent_service.py`)
+- [x] Version API routes: `GET /versions`, `GET /versions/{version}`, `POST /rollback/{version}` (`backend/app/api/v1/agents.py`)
+- [x] `AgentVersionResponse` + `AgentVersionListResponse` schemas, `changelog` field on `AgentUpdate` (`backend/app/schemas/agent.py`)
+- [x] `PlanApproval` HITL component: editable step list with reorder/remove, approve/edit/reject (`frontend/app/components/hitl/PlanApproval.tsx`)
+- [x] `AgentDelegation` HITL component: approve/redirect/stop with available agent buttons (`frontend/app/components/hitl/AgentDelegation.tsx`)
+- [x] `AgentChat` updated with `plan_approval` and `delegation_approval` interrupt routing (`frontend/app/components/copilot/AgentChat.tsx`)
+
+### Architecture Notes
+
+- Both new graphs extend `AgentState` (not raw TypedDict) for CopilotKit compatibility
+- Reuse `_build_llm`, `_get_bound_tools`, `entry_router`, `tool_node` from react.py — no duplication
+- Plan-Execute executor runs LLM + tools in a loop (same pattern as ReAct) per step
+- Multi-Agent sub-agents share `_run_sub_agent()` helper with role-specific system prompts
+- HITL interrupts use consistent payload format: `{"type": "plan_approval"|"delegation_approval", ...}`
+- Versioning creates snapshot on config change, rollback creates new version pointing to old config
+
+---
+
 ## Next Step
 
-**Phase 07: Advanced Agents** — Read `docs/phases/07-advanced-agents.md` and implement.
+**Phase 08: Auth & Users** — Read `docs/phases/08-auth-users.md` and implement.

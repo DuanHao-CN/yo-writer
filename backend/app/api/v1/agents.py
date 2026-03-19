@@ -6,7 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.constants import DEV_WORKSPACE_ID
 from app.core.database import get_db
 from app.runtime.engine import agent_runtime
-from app.schemas.agent import AgentCreate, AgentListResponse, AgentResponse, AgentUpdate
+from app.schemas.agent import (
+    AgentCreate,
+    AgentListResponse,
+    AgentResponse,
+    AgentUpdate,
+    AgentVersionListResponse,
+    AgentVersionResponse,
+)
 from app.schemas.conversation import AgentRunResponse, RunAgentRequest
 from app.schemas.tool import AgentToolBind, AgentToolResponse
 from app.services import agent_service, tool_service
@@ -86,6 +93,44 @@ async def list_agent_runs(
 ) -> list[AgentRunResponse]:
     runs = await agent_service.list_runs(db, agent_id)
     return [AgentRunResponse.model_validate(r) for r in runs]
+
+
+# --------------- Agent Versioning ---------------
+
+
+@router.get("/{agent_id}/versions", response_model=AgentVersionListResponse)
+async def list_agent_versions(
+    agent_id: uuid.UUID,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> AgentVersionListResponse:
+    items, total = await agent_service.list_versions(db, agent_id, offset, limit)
+    return AgentVersionListResponse(
+        items=[AgentVersionResponse.model_validate(v) for v in items],
+        total=total,
+    )
+
+
+@router.get("/{agent_id}/versions/{version}", response_model=AgentVersionResponse)
+async def get_agent_version(
+    agent_id: uuid.UUID,
+    version: int,
+    db: AsyncSession = Depends(get_db),
+) -> AgentVersionResponse:
+    v = await agent_service.get_version(db, agent_id, version)
+    return AgentVersionResponse.model_validate(v)
+
+
+@router.post("/{agent_id}/rollback/{version}", response_model=AgentResponse)
+async def rollback_agent(
+    agent_id: uuid.UUID,
+    version: int,
+    db: AsyncSession = Depends(get_db),
+) -> AgentResponse:
+    agent = await agent_service.rollback_agent(db, agent_id, version)
+    agent_runtime.register_agent(agent.slug, agent.config)
+    return AgentResponse.model_validate(agent)
 
 
 # --------------- Agent-Tool Binding ---------------

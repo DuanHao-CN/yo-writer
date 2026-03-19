@@ -22,12 +22,22 @@ from langgraph.graph.state import CompiledStateGraph
 from app.core.database import async_session
 from app.models.agent import Agent, AgentRun
 from app.runtime.checkpointer import get_checkpointer, get_persistent_checkpointer
+from app.runtime.graphs.multi_agent import build_multi_agent_graph
+from app.runtime.graphs.plan_execute import build_plan_execute_graph
 from app.runtime.graphs.react import build_react_graph
 from app.runtime.graphs.react_hitl import build_react_hitl_graph
 
 
 def _select_graph(config: dict) -> StateGraph:
-    """Choose graph builder based on agent config — HITL if approval/review lists present."""
+    """Choose graph builder based on agent config."""
+    graph_type = (config.get("graph") or {}).get("type", "react")
+
+    if graph_type == "plan-execute":
+        return build_plan_execute_graph()
+    if graph_type == "multi-agent":
+        return build_multi_agent_graph()
+
+    # Default: react with optional HITL
     hitl = config.get("hitl") or {}
     if hitl.get("require_approval") or hitl.get("require_review"):
         return build_react_hitl_graph()

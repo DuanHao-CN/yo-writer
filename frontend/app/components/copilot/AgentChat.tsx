@@ -5,6 +5,8 @@ import { useCopilotAction, useLangGraphInterrupt } from "@copilotkit/react-core"
 import HITLApproval from "../hitl/HITLApproval";
 import HITLReview from "../hitl/HITLReview";
 import HITLFormInput from "../hitl/HITLFormInput";
+import PlanApproval from "../hitl/PlanApproval";
+import AgentDelegation from "../hitl/AgentDelegation";
 
 export default function AgentChat() {
   // HITL: handle LangGraph interrupt events
@@ -40,6 +42,27 @@ export default function AgentChat() {
           <HITLFormInput
             message={payload.message as string}
             fields={payload.fields as { name: string; label?: string; type?: "string" | "enum"; options?: string[]; default?: string }[]}
+            onResolve={doResolve}
+          />
+        );
+      }
+
+      if (payload.type === "plan_approval") {
+        return (
+          <PlanApproval
+            plan={payload.plan as string[]}
+            message={payload.message as string}
+            onResolve={doResolve}
+          />
+        );
+      }
+
+      if (payload.type === "delegation_approval") {
+        return (
+          <AgentDelegation
+            nextAgent={payload.next_agent as string}
+            availableAgents={payload.available_agents as string[]}
+            message={payload.message as string}
             onResolve={doResolve}
           />
         );
